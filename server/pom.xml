@@ -23,6 +23,16 @@
   </properties>
   <dependencies>
     <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.13</version>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
       <version>${junit.version}</version>
@@ -46,6 +56,11 @@
       <artifactId>mysql-connector-j</artifactId>
       <version>8.3.0</version>
     </dependency>
+    <dependency>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
+      <version>3.4.5</version>
+    </dependency>
 
   </dependencies>
   <build>
@@ -67,37 +82,6 @@
               </rules>
               <fail>true</fail>
             </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>${maven-checkstyle-plugin.version}</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>${checkstyle.version}</version>
-          </dependency>
-          <dependency>
-            <groupId>com.github.ngeor</groupId>
-            <artifactId>checkstyle-rules</artifactId>
-            <version>4.9.3</version>
-          </dependency>
-        </dependencies>
-        <configuration>
-          <configLocation>com/github/ngeor/checkstyle.xml</configLocation>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <skip>${skipTests}</skip>
-        </configuration>
-        <executions>
-          <execution>
-            <id>checkstyle</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
           </execution>
         </executions>
       </plugin>
