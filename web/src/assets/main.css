@@ -13,3 +13,12 @@ input,
 textarea {
   font-family: inherit;
 }
+
+.n-modal {
+  width: 560px;
+  max-width: 90vw;
+}
+
+.n-modal .n-card {
+  width: 100%;
+}
