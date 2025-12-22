@@ -16,6 +16,7 @@ public class MyDataBase {
 
     private static DataSource buildDataSource() {
         HikariConfig config = new HikariConfig();
+        config.setDriverClassName("com.mysql.cj.jdbc.Driver");
         config.setJdbcUrl(
                 "jdbc:mysql://localhost:3306/orange_db?serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false");
         config.setUsername("orange");
