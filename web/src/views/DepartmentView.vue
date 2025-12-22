@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
   NCard,
@@ -13,6 +13,7 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
+import { createDepartment, deleteDepartment, fetchDepartments, updateDepartment } from '@/api'
 
 type Department = {
   id: number
@@ -28,6 +29,7 @@ const keyword = ref('')
 const page = ref(1)
 const size = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
@@ -45,10 +47,7 @@ const rules = {
   deptName: { required: true, message: '请输入部门名称', trigger: ['blur', 'input'] },
 }
 
-const list = ref<Department[]>([
-  { id: 1, deptCode: 'D001', deptName: '行政部', remark: '总部' },
-  { id: 2, deptCode: 'D002', deptName: '研发部', remark: '核心研发' },
-])
+const list = ref<Department[]>([])
 
 const columns = computed(() => [
   { title: '部门编码', key: 'deptCode' },
@@ -85,10 +84,26 @@ const resetForm = () => {
   formModel.remark = ''
 }
 
+const loadList = async () => {
+  loading.value = true
+  try {
+    const data = await fetchDepartments({
+      page: page.value,
+      size: size.value,
+      keyword: keyword.value || undefined,
+    })
+    list.value = data.list
+    total.value = data.total
+  } catch (error) {
+    message.error((error as Error).message || '部门列表加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleSearch = () => {
   page.value = 1
-  message.success('已应用筛选条件')
-  // TODO: 接入后端分页查询
+  loadList()
 }
 
 const handleReset = () => {
@@ -117,9 +132,14 @@ const handleDelete = (row: Department) => {
     content: `确定删除部门 ${row.deptName} 吗？`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => {
-      list.value = list.value.filter((item) => item.id !== row.id)
-      message.success('删除成功')
+    onPositiveClick: async () => {
+      try {
+        await deleteDepartment(row.id)
+        message.success('删除成功')
+        loadList()
+      } catch (error) {
+        message.error((error as Error).message || '删除失败')
+      }
     },
   })
 }
@@ -129,19 +149,35 @@ const handleSubmit = () => {
     if (errors) {
       return
     }
-    if (isEditMode.value) {
-      const index = list.value.findIndex((item) => item.id === formModel.id)
-      if (index !== -1) {
-        list.value[index] = { ...formModel }
-      }
-      message.success('更新成功')
-    } else {
-      const nextId = Math.max(0, ...list.value.map((item) => item.id)) + 1
-      list.value.unshift({ ...formModel, id: nextId })
-      message.success('新增成功')
+    const payload = {
+      deptCode: formModel.deptCode,
+      deptName: formModel.deptName,
+      remark: formModel.remark,
     }
-    isModalOpen.value = false
+    const action = isEditMode.value
+      ? updateDepartment(formModel.id, payload)
+      : createDepartment(payload)
+    action
+      .then(() => {
+        message.success(isEditMode.value ? '更新成功' : '新增成功')
+        isModalOpen.value = false
+        if (!isEditMode.value) {
+          page.value = 1
+        }
+        loadList()
+      })
+      .catch((error) => {
+        message.error((error as Error).message || '保存失败')
+      })
   })
+}
+
+onMounted(loadList)
+</script>
+
+<script lang="ts">
+export default {
+  name: 'DepartmentView',
 }
 </script>
 
@@ -162,13 +198,15 @@ const handleSubmit = () => {
         <n-button type="primary" @click="handleOpenCreate">新增部门</n-button>
       </n-space>
 
-      <n-data-table :columns="columns" :data="list" :bordered="false" />
+      <n-data-table :columns="columns" :data="list" :bordered="false" :loading="loading" />
 
       <n-pagination
         v-model:page="page"
         v-model:page-size="size"
         :item-count="total || list.length"
         show-size-picker
+        @update:page="loadList"
+        @update:page-size="loadList"
       />
     </n-space>
   </n-card>

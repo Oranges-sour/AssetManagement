@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import {
   NConfigProvider,
@@ -11,7 +11,11 @@ import {
   NMessageProvider,
   NDialogProvider,
   NNotificationProvider,
+  NModal,
+  NButton,
+  NSpace,
 } from 'naive-ui'
+import { checkHealth } from '@/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,6 +35,19 @@ const activeKey = computed(() => {
 const handleMenuUpdate = (key: string) => {
   router.push(key)
 }
+
+const showHealthModal = ref(false)
+const healthMessage = ref('网络未连接或后端服务不可用')
+
+const runHealthCheck = async () => {
+  try {
+    await checkHealth()
+  } catch (error) {
+    showHealthModal.value = true
+  }
+}
+
+onMounted(runHealthCheck)
 </script>
 
 <template>
@@ -62,6 +79,14 @@ const handleMenuUpdate = (key: string) => {
               </n-layout-content>
             </n-layout>
           </n-layout>
+          <n-modal v-model:show="showHealthModal" preset="card" title="后端状态异常">
+            <div class="health-message">{{ healthMessage }}</div>
+            <template #footer>
+              <n-space justify="end">
+                <n-button @click="showHealthModal = false">知道了</n-button>
+              </n-space>
+            </template>
+          </n-modal>
         </n-notification-provider>
       </n-dialog-provider>
     </n-message-provider>
@@ -121,5 +146,9 @@ const handleMenuUpdate = (key: string) => {
 
 .app-content {
   padding: 24px;
+}
+
+.health-message {
+  color: #5b4636;
 }
 </style>

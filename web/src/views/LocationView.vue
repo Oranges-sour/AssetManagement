@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
   NCard,
@@ -15,6 +15,7 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
+import { createLocation, deleteLocation, fetchDepartments, fetchLocations, updateLocation } from '@/api'
 
 type DepartmentOption = {
   label: string
@@ -38,15 +39,13 @@ const deptFilter = ref<number | null>(null)
 const page = ref(1)
 const size = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const formRef = ref<InstanceType<typeof NForm> | null>(null)
 
-const departmentOptions = ref<DepartmentOption[]>([
-  { label: '行政部', value: 1 },
-  { label: '研发部', value: 2 },
-])
+const departmentOptions = ref<DepartmentOption[]>([])
 
 const formModel = reactive<LocationSpace>({
   id: 0,
@@ -63,10 +62,7 @@ const rules = {
   area: { required: true, type: 'number', message: '请输入面积', trigger: ['blur', 'change'] },
 }
 
-const list = ref<LocationSpace[]>([
-  { id: 1, deptId: 1, deptName: '行政部', roomNo: 'A-301', area: 60.5, remark: '行政区' },
-  { id: 2, deptId: 2, deptName: '研发部', roomNo: 'B-210', area: 85, remark: '研发楼层' },
-])
+const list = ref<LocationSpace[]>([])
 
 const columns = computed(() => [
   { title: '所属部门', key: 'deptName' },
@@ -106,15 +102,40 @@ const resetForm = () => {
   formModel.remark = ''
 }
 
-const syncDeptName = (deptId: number) => {
-  const option = departmentOptions.value.find((item) => item.value === deptId)
-  formModel.deptName = option?.label ?? ''
+
+const loadDepartments = async () => {
+  try {
+    const data = await fetchDepartments({ page: 1, size: 1000 })
+    departmentOptions.value = data.list.map((item) => ({
+      label: item.deptName,
+      value: item.id,
+    }))
+  } catch (error) {
+    message.error((error as Error).message || '部门列表加载失败')
+  }
+}
+
+const loadList = async () => {
+  loading.value = true
+  try {
+    const data = await fetchLocations({
+      page: page.value,
+      size: size.value,
+      keyword: keyword.value || undefined,
+      deptId: deptFilter.value ?? undefined,
+    })
+    list.value = data.list
+    total.value = data.total
+  } catch (error) {
+    message.error((error as Error).message || '位置空间列表加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleSearch = () => {
   page.value = 1
-  message.success('已应用筛选条件')
-  // TODO: 接入后端分页查询
+  loadList()
 }
 
 const handleReset = () => {
@@ -146,9 +167,14 @@ const handleDelete = (row: LocationSpace) => {
     content: `确定删除位置空间 ${row.roomNo} 吗？`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => {
-      list.value = list.value.filter((item) => item.id !== row.id)
-      message.success('删除成功')
+    onPositiveClick: async () => {
+      try {
+        await deleteLocation(row.id)
+        message.success('删除成功')
+        loadList()
+      } catch (error) {
+        message.error((error as Error).message || '删除失败')
+      }
     },
   })
 }
@@ -158,20 +184,39 @@ const handleSubmit = () => {
     if (errors) {
       return
     }
-    syncDeptName(formModel.deptId)
-    if (isEditMode.value) {
-      const index = list.value.findIndex((item) => item.id === formModel.id)
-      if (index !== -1) {
-        list.value[index] = { ...formModel }
-      }
-      message.success('更新成功')
-    } else {
-      const nextId = Math.max(0, ...list.value.map((item) => item.id)) + 1
-      list.value.unshift({ ...formModel, id: nextId })
-      message.success('新增成功')
+    const payload = {
+      deptId: formModel.deptId,
+      roomNo: formModel.roomNo,
+      area: formModel.area,
+      remark: formModel.remark,
     }
-    isModalOpen.value = false
+    const action = isEditMode.value
+      ? updateLocation(formModel.id, payload)
+      : createLocation(payload)
+    action
+      .then(() => {
+        message.success(isEditMode.value ? '更新成功' : '新增成功')
+        isModalOpen.value = false
+        if (!isEditMode.value) {
+          page.value = 1
+        }
+        loadList()
+      })
+      .catch((error) => {
+        message.error((error as Error).message || '保存失败')
+      })
   })
+}
+
+onMounted(() => {
+  loadDepartments()
+  loadList()
+})
+</script>
+
+<script lang="ts">
+export default {
+  name: 'LocationView',
 }
 </script>
 
@@ -194,13 +239,15 @@ const handleSubmit = () => {
         <n-button type="primary" @click="handleOpenCreate">新增位置空间</n-button>
       </n-space>
 
-      <n-data-table :columns="columns" :data="list" :bordered="false" />
+      <n-data-table :columns="columns" :data="list" :bordered="false" :loading="loading" />
 
       <n-pagination
         v-model:page="page"
         v-model:page-size="size"
         :item-count="total || list.length"
         show-size-picker
+        @update:page="loadList"
+        @update:page-size="loadList"
       />
     </n-space>
   </n-card>

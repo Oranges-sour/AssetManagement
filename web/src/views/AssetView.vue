@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import {
   NButton,
   NCard,
@@ -16,6 +16,17 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
+import {
+  assignAsset,
+  createAsset,
+  deleteAsset,
+  fetchAssignees,
+  fetchAssets,
+  fetchDepartments,
+  fetchLocations,
+  returnAsset,
+  updateAsset,
+} from '@/api'
 
 type SelectOption = {
   label: string
@@ -48,25 +59,16 @@ const statusFilter = ref<number | null>(null)
 const page = ref(1)
 const size = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const formRef = ref<InstanceType<typeof NForm> | null>(null)
 
-const deptOptions = ref<SelectOption[]>([
-  { label: '行政部', value: 1 },
-  { label: '研发部', value: 2 },
-])
-
-const locationOptions = ref<SelectOption[]>([
-  { label: 'A-301', value: 11 },
-  { label: 'B-210', value: 12 },
-])
-
-const assigneeOptions = ref<SelectOption[]>([
-  { label: '张三', value: 21 },
-  { label: '李四', value: 22 },
-])
+const deptOptions = ref<SelectOption[]>([])
+const locationOptions = ref<SelectOption[]>([])
+const formLocationOptions = ref<SelectOption[]>([])
+const assigneeOptions = ref<SelectOption[]>([])
 
 const statusOptions: SelectOption[] = [
   { label: '闲置', value: 0 },
@@ -96,36 +98,11 @@ const rules = {
   locationId: { required: true, message: '请选择位置空间', trigger: ['blur', 'change'] },
 }
 
-const list = ref<Asset[]>([
-  {
-    id: 1,
-    assetNo: 'AS0001',
-    assetName: '笔记本电脑',
-    value: 8000,
-    deptId: 1,
-    deptName: '行政部',
-    locationId: 11,
-    roomNo: 'A-301',
-    assigneeId: null,
-    assigneeName: null,
-    status: 0,
-    remark: '轻薄本',
-  },
-  {
-    id: 2,
-    assetNo: 'AS0002',
-    assetName: '投影仪',
-    value: 12000,
-    deptId: 2,
-    deptName: '研发部',
-    locationId: 12,
-    roomNo: 'B-210',
-    assigneeId: 21,
-    assigneeName: '张三',
-    status: 1,
-    remark: '会议室',
-  },
-])
+const list = ref<Asset[]>([])
+
+const assignModalOpen = ref(false)
+const assignTarget = ref<Asset | null>(null)
+const selectedAssignee = ref<number | null>(null)
 
 const statusLabel = (value: number) => (value === 1 ? '领用' : '闲置')
 
@@ -197,20 +174,71 @@ const resetForm = () => {
   formModel.remark = ''
 }
 
-const syncDeptName = (deptId: number) => {
-  const option = deptOptions.value.find((item) => item.value === deptId)
-  formModel.deptName = option?.label ?? ''
+const loadDepartments = async () => {
+  try {
+    const data = await fetchDepartments({ page: 1, size: 1000 })
+    deptOptions.value = data.list.map((item) => ({
+      label: item.deptName,
+      value: item.id,
+    }))
+  } catch (error) {
+    message.error((error as Error).message || '部门列表加载失败')
+  }
 }
 
-const syncRoomName = (locationId: number) => {
-  const option = locationOptions.value.find((item) => item.value === locationId)
-  formModel.roomNo = option?.label ?? ''
+const loadAssignees = async () => {
+  try {
+    const data = await fetchAssignees({ page: 1, size: 1000 })
+    assigneeOptions.value = data.list.map((item) => ({
+      label: item.name,
+      value: item.id,
+    }))
+  } catch (error) {
+    message.error((error as Error).message || '领用人列表加载失败')
+  }
+}
+
+const loadLocations = async (deptId?: number, target: 'filter' | 'form' = 'filter') => {
+  try {
+    const data = await fetchLocations({ page: 1, size: 1000, deptId })
+    const options = data.list.map((item) => ({
+      label: item.roomNo,
+      value: item.id,
+    }))
+    if (target === 'form') {
+      formLocationOptions.value = options
+    } else {
+      locationOptions.value = options
+    }
+  } catch (error) {
+    message.error((error as Error).message || '位置空间列表加载失败')
+  }
+}
+
+const loadList = async () => {
+  loading.value = true
+  try {
+    const data = await fetchAssets({
+      page: page.value,
+      size: size.value,
+      keyword: keyword.value || undefined,
+      deptId: deptFilter.value ?? undefined,
+      locationId: locationFilter.value ?? undefined,
+      assigneeId: assigneeFilter.value ?? undefined,
+      status: statusFilter.value ?? undefined,
+    })
+    list.value = data.list
+    total.value = data.total
+  } catch (error) {
+    message.error((error as Error).message || '资产列表加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleSearch = () => {
   page.value = 1
-  message.success('已应用筛选条件')
-  // TODO: 接入后端分页查询
+  loadList()
 }
 
 const handleReset = () => {
@@ -225,6 +253,7 @@ const handleReset = () => {
 const handleOpenCreate = () => {
   isEditMode.value = false
   resetForm()
+  loadLocations(undefined, 'form')
   isModalOpen.value = true
 }
 
@@ -242,6 +271,11 @@ const handleEdit = (row: Asset) => {
   formModel.assigneeName = row.assigneeName
   formModel.status = row.status
   formModel.remark = row.remark ?? ''
+  if (row.deptId) {
+    loadLocations(row.deptId, 'form')
+  } else {
+    loadLocations(undefined, 'form')
+  }
   isModalOpen.value = true
 }
 
@@ -251,25 +285,54 @@ const handleDelete = (row: Asset) => {
     content: `确定删除资产 ${row.assetName} 吗？`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => {
-      list.value = list.value.filter((item) => item.id !== row.id)
-      message.success('删除成功')
+    onPositiveClick: async () => {
+      try {
+        await deleteAsset(row.id)
+        message.success('删除成功')
+        loadList()
+      } catch (error) {
+        message.error((error as Error).message || '删除失败')
+      }
     },
   })
 }
 
 const handleAssignToggle = (row: Asset) => {
   if (row.status === 1) {
-    row.status = 0
-    row.assigneeId = null
-    row.assigneeName = null
-    message.success('已归还资产')
+    dialog.warning({
+      title: '确认归还',
+      content: `确定归还资产 ${row.assetName} 吗？`,
+      positiveText: '归还',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await returnAsset(row.id)
+          message.success('已归还资产')
+          loadList()
+        } catch (error) {
+          message.error((error as Error).message || '归还失败')
+        }
+      },
+    })
   } else {
-    const defaultAssignee = assigneeOptions.value[0]
-    row.status = 1
-    row.assigneeId = Number(defaultAssignee.value)
-    row.assigneeName = defaultAssignee.label
-    message.success('已领用资产')
+    assignTarget.value = row
+    selectedAssignee.value = null
+    assignModalOpen.value = true
+  }
+}
+
+const handleAssignSubmit = async () => {
+  if (!assignTarget.value || !selectedAssignee.value) {
+    message.error('请选择领用人')
+    return
+  }
+  try {
+    await assignAsset(assignTarget.value.id, selectedAssignee.value)
+    message.success('领用成功')
+    assignModalOpen.value = false
+    loadList()
+  } catch (error) {
+    message.error((error as Error).message || '领用失败')
   }
 }
 
@@ -278,21 +341,62 @@ const handleSubmit = () => {
     if (errors) {
       return
     }
-    syncDeptName(formModel.deptId)
-    syncRoomName(formModel.locationId)
-    if (isEditMode.value) {
-      const index = list.value.findIndex((item) => item.id === formModel.id)
-      if (index !== -1) {
-        list.value[index] = { ...formModel }
-      }
-      message.success('更新成功')
-    } else {
-      const nextId = Math.max(0, ...list.value.map((item) => item.id)) + 1
-      list.value.unshift({ ...formModel, id: nextId })
-      message.success('新增成功')
+    const payload = {
+      assetNo: formModel.assetNo,
+      assetName: formModel.assetName,
+      value: formModel.value,
+      locationId: formModel.locationId,
+      assigneeId: formModel.assigneeId,
+      status: formModel.assigneeId ? 1 : 0,
+      remark: formModel.remark,
     }
-    isModalOpen.value = false
+    const action = isEditMode.value
+      ? updateAsset(formModel.id, payload)
+      : createAsset(payload)
+    action
+      .then(() => {
+        message.success(isEditMode.value ? '更新成功' : '新增成功')
+        isModalOpen.value = false
+        if (!isEditMode.value) {
+          page.value = 1
+        }
+        loadList()
+      })
+      .catch((error) => {
+        message.error((error as Error).message || '保存失败')
+      })
   })
+}
+
+watch(deptFilter, (value) => {
+  locationFilter.value = null
+  loadLocations(value ?? undefined, 'filter')
+})
+
+watch(
+  () => formModel.deptId,
+  (value) => {
+    formModel.locationId = 0
+    if (value) {
+      loadLocations(value, 'form')
+    } else {
+      loadLocations(undefined, 'form')
+    }
+  },
+)
+
+onMounted(() => {
+  loadDepartments()
+  loadAssignees()
+  loadLocations(undefined, 'filter')
+  loadLocations(undefined, 'form')
+  loadList()
+})
+</script>
+
+<script lang="ts">
+export default {
+  name: 'AssetView',
 }
 </script>
 
@@ -341,13 +445,15 @@ const handleSubmit = () => {
         <n-button type="primary" @click="handleOpenCreate">新增资产</n-button>
       </n-space>
 
-      <n-data-table :columns="columns" :data="list" :bordered="false" />
+      <n-data-table :columns="columns" :data="list" :bordered="false" :loading="loading" />
 
       <n-pagination
         v-model:page="page"
         v-model:page-size="size"
         :item-count="total || list.length"
         show-size-picker
+        @update:page="loadList"
+        @update:page-size="loadList"
       />
     </n-space>
   </n-card>
@@ -370,7 +476,7 @@ const handleSubmit = () => {
         <n-select
           v-model:value="formModel.locationId"
           placeholder="请选择位置空间"
-          :options="locationOptions"
+          :options="formLocationOptions"
         />
       </n-form-item>
       <n-form-item label="领用人" path="assigneeId">
@@ -389,6 +495,24 @@ const handleSubmit = () => {
       <n-space justify="end">
         <n-button @click="isModalOpen = false">取消</n-button>
         <n-button type="primary" @click="handleSubmit">保存</n-button>
+      </n-space>
+    </template>
+  </n-modal>
+
+  <n-modal v-model:show="assignModalOpen" preset="card" title="资产领用">
+    <n-form label-placement="left" label-width="80">
+      <n-form-item label="领用人">
+        <n-select
+          v-model:value="selectedAssignee"
+          placeholder="请选择领用人"
+          :options="assigneeOptions"
+        />
+      </n-form-item>
+    </n-form>
+    <template #footer>
+      <n-space justify="end">
+        <n-button @click="assignModalOpen = false">取消</n-button>
+        <n-button type="primary" @click="handleAssignSubmit">确认领用</n-button>
       </n-space>
     </template>
   </n-modal>

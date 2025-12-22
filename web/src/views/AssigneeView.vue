@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
   NCard,
@@ -13,6 +13,13 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
+import {
+  createAssignee,
+  deleteAssignee,
+  fetchAssigneeAssets,
+  fetchAssignees,
+  updateAssignee,
+} from '@/api'
 
 type AssetBrief = {
   id: number
@@ -37,10 +44,16 @@ const keyword = ref('')
 const page = ref(1)
 const size = ref(10)
 const total = ref(0)
+const loading = ref(false)
+
+const assetPage = ref(1)
+const assetSize = ref(10)
+const assetTotal = ref(0)
 
 const isModalOpen = ref(false)
 const isEditMode = ref(false)
 const isAssetsOpen = ref(false)
+const currentAssigneeId = ref<number | null>(null)
 const formRef = ref<InstanceType<typeof NForm> | null>(null)
 
 const formModel = reactive<Assignee>({
@@ -56,15 +69,8 @@ const rules = {
   name: { required: true, message: '请输入姓名', trigger: ['blur', 'input'] },
 }
 
-const list = ref<Assignee[]>([
-  { id: 1, empNo: 'E1001', name: '张三', phone: '13800000000', remark: '行政' },
-  { id: 2, empNo: 'E1002', name: '李四', phone: '13900000000', remark: '研发' },
-])
-
-const assetList = ref<AssetBrief[]>([
-  { id: 1, assetNo: 'AS0002', assetName: '投影仪', roomNo: 'B-210', status: 1 },
-  { id: 2, assetNo: 'AS0005', assetName: '显示器', roomNo: 'B-210', status: 1 },
-])
+const list = ref<Assignee[]>([])
+const assetList = ref<AssetBrief[]>([])
 
 const columns = computed(() => [
   { title: '工号', key: 'empNo' },
@@ -119,10 +125,45 @@ const resetForm = () => {
   formModel.remark = ''
 }
 
+const loadList = async () => {
+  loading.value = true
+  try {
+    const data = await fetchAssignees({
+      page: page.value,
+      size: size.value,
+      keyword: keyword.value || undefined,
+    })
+    list.value = data.list
+    total.value = data.total
+  } catch (error) {
+    message.error((error as Error).message || '领用人列表加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadAssets = async (assigneeId: number) => {
+  try {
+    const data = await fetchAssigneeAssets(assigneeId, {
+      page: assetPage.value,
+      size: assetSize.value,
+    })
+    assetList.value = data.list.map((item) => ({
+      id: item.id,
+      assetNo: item.assetNo,
+      assetName: item.assetName,
+      roomNo: item.roomNo || '-',
+      status: item.status,
+    }))
+    assetTotal.value = data.total
+  } catch (error) {
+    message.error((error as Error).message || '资产列表加载失败')
+  }
+}
+
 const handleSearch = () => {
   page.value = 1
-  message.success('已应用筛选条件')
-  // TODO: 接入后端分页查询
+  loadList()
 }
 
 const handleReset = () => {
@@ -152,17 +193,24 @@ const handleDelete = (row: Assignee) => {
     content: `确定删除领用人 ${row.name} 吗？`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => {
-      list.value = list.value.filter((item) => item.id !== row.id)
-      message.success('删除成功')
+    onPositiveClick: async () => {
+      try {
+        await deleteAssignee(row.id)
+        message.success('删除成功')
+        loadList()
+      } catch (error) {
+        message.error((error as Error).message || '删除失败')
+      }
     },
   })
 }
 
 const handleShowAssets = (row: Assignee) => {
   message.info(`查看 ${row.name} 名下资产`)
+  currentAssigneeId.value = row.id
+  assetPage.value = 1
+  loadAssets(row.id)
   isAssetsOpen.value = true
-  // TODO: 接入后端查询名下资产
 }
 
 const handleSubmit = () => {
@@ -170,19 +218,36 @@ const handleSubmit = () => {
     if (errors) {
       return
     }
-    if (isEditMode.value) {
-      const index = list.value.findIndex((item) => item.id === formModel.id)
-      if (index !== -1) {
-        list.value[index] = { ...formModel }
-      }
-      message.success('更新成功')
-    } else {
-      const nextId = Math.max(0, ...list.value.map((item) => item.id)) + 1
-      list.value.unshift({ ...formModel, id: nextId })
-      message.success('新增成功')
+    const payload = {
+      empNo: formModel.empNo,
+      name: formModel.name,
+      phone: formModel.phone,
+      remark: formModel.remark,
     }
-    isModalOpen.value = false
+    const action = isEditMode.value
+      ? updateAssignee(formModel.id, payload)
+      : createAssignee(payload)
+    action
+      .then(() => {
+        message.success(isEditMode.value ? '更新成功' : '新增成功')
+        isModalOpen.value = false
+        if (!isEditMode.value) {
+          page.value = 1
+        }
+        loadList()
+      })
+      .catch((error) => {
+        message.error((error as Error).message || '保存失败')
+      })
   })
+}
+
+onMounted(loadList)
+</script>
+
+<script lang="ts">
+export default {
+  name: 'AssigneeView',
 }
 </script>
 
@@ -203,13 +268,15 @@ const handleSubmit = () => {
         <n-button type="primary" @click="handleOpenCreate">新增领用人</n-button>
       </n-space>
 
-      <n-data-table :columns="columns" :data="list" :bordered="false" />
+      <n-data-table :columns="columns" :data="list" :bordered="false" :loading="loading" />
 
       <n-pagination
         v-model:page="page"
         v-model:page-size="size"
         :item-count="total || list.length"
         show-size-picker
+        @update:page="loadList"
+        @update:page-size="loadList"
       />
     </n-space>
   </n-card>
@@ -240,7 +307,15 @@ const handleSubmit = () => {
   <n-modal v-model:show="isAssetsOpen" preset="card" title="名下资产">
     <n-data-table :columns="assetColumns" :data="assetList" :bordered="false" />
     <template #footer>
-      <n-space justify="end">
+      <n-space align="center" justify="space-between" style="width: 100%">
+        <n-pagination
+          v-model:page="assetPage"
+          v-model:page-size="assetSize"
+          :item-count="assetTotal || assetList.length"
+          show-size-picker
+          @update:page="() => currentAssigneeId && loadAssets(currentAssigneeId)"
+          @update:page-size="() => currentAssigneeId && loadAssets(currentAssigneeId)"
+        />
         <n-button @click="isAssetsOpen = false">关闭</n-button>
       </n-space>
     </template>
