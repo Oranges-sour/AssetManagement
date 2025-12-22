@@ -16,7 +16,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@WebServlet("/api/departments")
+@WebServlet("/api/departments/*")
 public class ApiDepartments extends HttpServlet {
     private static final Logger logger = LoggerFactory.getLogger(ApiDepartments.class);
     private static final Pattern STRING_FIELD =
@@ -81,6 +81,8 @@ public class ApiDepartments extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        // logger.info("收到get请求");
+        
         resp.setContentType("application/json; charset=UTF-8");
 
         String pathInfo = req.getPathInfo();
