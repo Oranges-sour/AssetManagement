@@ -38,9 +38,9 @@ type Asset = {
   assetNo: string
   assetName: string
   value: number
-  deptId: number
+  deptId: number | null
   deptName: string
-  locationId: number
+  locationId: number | null
   roomNo: string
   assigneeId: number | null
   assigneeName: string | null
@@ -80,9 +80,9 @@ const formModel = reactive<Asset>({
   assetNo: '',
   assetName: '',
   value: 0,
-  deptId: 0,
+  deptId: null,
   deptName: '',
-  locationId: 0,
+  locationId: null,
   roomNo: '',
   assigneeId: null,
   assigneeName: null,
@@ -94,8 +94,8 @@ const rules = {
   assetNo: { required: true, message: '请输入资产编号', trigger: ['blur', 'input'] },
   assetName: { required: true, message: '请输入资产名称', trigger: ['blur', 'input'] },
   value: { required: true, type: 'number', message: '请输入资产价值', trigger: ['blur', 'change'] },
-  deptId: { required: true, message: '请选择部门', trigger: ['blur', 'change'] },
-  locationId: { required: true, message: '请选择位置空间', trigger: ['blur', 'change'] },
+  deptId: { required: true, type: 'number', message: '请选择部门', trigger: ['blur', 'change'] },
+  locationId: { required: true, type: 'number', message: '请选择位置空间', trigger: ['blur', 'change'] },
 }
 
 const list = ref<Asset[]>([])
@@ -164,9 +164,9 @@ const resetForm = () => {
   formModel.assetNo = ''
   formModel.assetName = ''
   formModel.value = 0
-  formModel.deptId = 0
+  formModel.deptId = null
   formModel.deptName = ''
-  formModel.locationId = 0
+  formModel.locationId = null
   formModel.roomNo = ''
   formModel.assigneeId = null
   formModel.assigneeName = null
@@ -376,7 +376,7 @@ watch(deptFilter, (value) => {
 watch(
   () => formModel.deptId,
   (value) => {
-    formModel.locationId = 0
+    formModel.locationId = null
     if (value) {
       loadLocations(value, 'form')
     } else {
@@ -405,40 +405,14 @@ export default {
     <n-space vertical size="large">
       <n-space align="center" justify="space-between">
         <n-space align="center" wrap>
-          <n-input
-            v-model:value="keyword"
-            placeholder="资产编号/名称"
-            clearable
-            style="width: 180px"
-          />
-          <n-select
-            v-model:value="deptFilter"
-            placeholder="部门"
-            clearable
-            :options="deptOptions"
-            style="width: 160px"
-          />
-          <n-select
-            v-model:value="locationFilter"
-            placeholder="位置空间"
-            clearable
-            :options="locationOptions"
-            style="width: 160px"
-          />
-          <n-select
-            v-model:value="assigneeFilter"
-            placeholder="领用人"
-            clearable
-            :options="assigneeOptions"
-            style="width: 160px"
-          />
-          <n-select
-            v-model:value="statusFilter"
-            placeholder="状态"
-            clearable
-            :options="statusOptions"
-            style="width: 120px"
-          />
+          <n-input v-model:value="keyword" placeholder="资产编号/名称" clearable style="width: 180px" />
+          <n-select v-model:value="deptFilter" placeholder="部门" clearable :options="deptOptions" style="width: 160px" />
+          <n-select v-model:value="locationFilter" placeholder="位置空间" clearable :options="locationOptions"
+            style="width: 160px" />
+          <n-select v-model:value="assigneeFilter" placeholder="领用人" clearable :options="assigneeOptions"
+            style="width: 160px" />
+          <n-select v-model:value="statusFilter" placeholder="状态" clearable :options="statusOptions"
+            style="width: 120px" />
           <n-button type="primary" @click="handleSearch">查询</n-button>
           <n-button @click="handleReset">重置</n-button>
         </n-space>
@@ -447,14 +421,8 @@ export default {
 
       <n-data-table :columns="columns" :data="list" :bordered="false" :loading="loading" />
 
-      <n-pagination
-        v-model:page="page"
-        v-model:page-size="size"
-        :item-count="total || list.length"
-        show-size-picker
-        @update:page="loadList"
-        @update:page-size="loadList"
-      />
+      <n-pagination v-model:page="page" v-model:page-size="size" :item-count="total || list.length" show-size-picker
+        @update:page="loadList" @update:page-size="loadList" />
     </n-space>
   </n-card>
 
@@ -473,19 +441,10 @@ export default {
         <n-select v-model:value="formModel.deptId" placeholder="请选择部门" :options="deptOptions" />
       </n-form-item>
       <n-form-item label="位置空间" path="locationId">
-        <n-select
-          v-model:value="formModel.locationId"
-          placeholder="请选择位置空间"
-          :options="formLocationOptions"
-        />
+        <n-select v-model:value="formModel.locationId" placeholder="请选择位置空间" :options="formLocationOptions" />
       </n-form-item>
       <n-form-item label="领用人" path="assigneeId">
-        <n-select
-          v-model:value="formModel.assigneeId"
-          placeholder="闲置可不选"
-          clearable
-          :options="assigneeOptions"
-        />
+        <n-select v-model:value="formModel.assigneeId" placeholder="闲置可不选" clearable :options="assigneeOptions" />
       </n-form-item>
       <n-form-item label="备注" path="remark">
         <n-input v-model:value="formModel.remark" placeholder="可选" />
@@ -502,11 +461,7 @@ export default {
   <n-modal v-model:show="assignModalOpen" preset="card" title="资产领用">
     <n-form label-placement="left" label-width="80">
       <n-form-item label="领用人">
-        <n-select
-          v-model:value="selectedAssignee"
-          placeholder="请选择领用人"
-          :options="assigneeOptions"
-        />
+        <n-select v-model:value="selectedAssignee" placeholder="请选择领用人" :options="assigneeOptions" />
       </n-form-item>
     </n-form>
     <template #footer>
