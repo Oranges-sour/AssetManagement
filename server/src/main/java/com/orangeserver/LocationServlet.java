@@ -9,7 +9,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -20,14 +19,6 @@ import org.slf4j.LoggerFactory;
 @WebServlet("/api/locations/*")
 public class LocationServlet extends HttpServlet {
     private static final Logger logger = LoggerFactory.getLogger(LocationServlet.class);
-    private static final Pattern STRING_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*\"(.*?)\"", Pattern.DOTALL);
-    private static final Pattern NULL_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*null", Pattern.CASE_INSENSITIVE);
-    private static final Pattern LONG_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*(\\d+)", Pattern.DOTALL);
-    private static final Pattern DECIMAL_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)", Pattern.DOTALL);
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -37,10 +28,10 @@ public class LocationServlet extends HttpServlet {
          * { "deptId": 1, "roomNo": "A-301", "area": 60.50, "remark": "" }
          */
         String body = ApiUtils.readBody(req);
-        Long deptId = extractLong(body, "deptId");
-        String roomNo = ApiUtils.extractString(body, "roomNo", STRING_FIELD);
-        BigDecimal area = extractDecimal(body, "area");
-        String remark = ApiUtils.extractNullableString(body, "remark", STRING_FIELD, NULL_FIELD);
+        Long deptId = ApiUtils.extractLong(body, "deptId");
+        String roomNo = ApiUtils.extractString(body, "roomNo", ApiUtils.STRING_FIELD);
+        BigDecimal area = ApiUtils.extractDecimal(body, "area");
+        String remark = ApiUtils.extractNullableString(body, "remark", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
 
         if (deptId == null || ApiUtils.isBlank(roomNo) || area == null) {
             ApiUtils.writeJson(resp, 4001, "deptId、roomNo、area 为必填字段", "null");
@@ -98,7 +89,7 @@ public class LocationServlet extends HttpServlet {
             return;
         }
 
-        Long id = parseId(pathInfo);
+        Long id = ApiUtils.parseId(pathInfo);
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
@@ -110,17 +101,17 @@ public class LocationServlet extends HttpServlet {
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
 
-        Long id = parseId(req.getPathInfo());
+        Long id = ApiUtils.parseId(req.getPathInfo());
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
         }
 
         String body = ApiUtils.readBody(req);
-        Long deptId = extractLong(body, "deptId");
-        String roomNo = ApiUtils.extractString(body, "roomNo", STRING_FIELD);
-        BigDecimal area = extractDecimal(body, "area");
-        String remark = ApiUtils.extractNullableString(body, "remark", STRING_FIELD, NULL_FIELD);
+        Long deptId = ApiUtils.extractLong(body, "deptId");
+        String roomNo = ApiUtils.extractString(body, "roomNo", ApiUtils.STRING_FIELD);
+        BigDecimal area = ApiUtils.extractDecimal(body, "area");
+        String remark = ApiUtils.extractNullableString(body, "remark", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
 
         if (deptId == null || ApiUtils.isBlank(roomNo) || area == null) {
             ApiUtils.writeJson(resp, 4001, "deptId、roomNo、area 为必填字段", "null");
@@ -171,7 +162,7 @@ public class LocationServlet extends HttpServlet {
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
 
-        Long id = parseId(req.getPathInfo());
+        Long id = ApiUtils.parseId(req.getPathInfo());
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
@@ -208,14 +199,14 @@ public class LocationServlet extends HttpServlet {
     private void handleList(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String keyword = req.getParameter("keyword");
         String deptIdValue = req.getParameter("deptId");
-        Long deptId = parseLongParam(deptIdValue);
+        Long deptId = ApiUtils.parseLongParam(deptIdValue);
         if (deptId == null && !ApiUtils.isBlank(deptIdValue)) {
             ApiUtils.writeJson(resp, 4001, "deptId 格式不正确", "null");
             return;
         }
 
-        int page = parseInt(req.getParameter("page"), 1);
-        int size = parseInt(req.getParameter("size"), 10);
+        int page = ApiUtils.parseInt(req.getParameter("page"), 1);
+        int size = ApiUtils.parseInt(req.getParameter("size"), 10);
         if (page <= 0 || size <= 0) {
             ApiUtils.writeJson(resp, 4001, "page 和 size 需为正整数", "null");
             return;
@@ -331,73 +322,4 @@ public class LocationServlet extends HttpServlet {
         }
     }
 
-    private Long parseId(String pathInfo) {
-        if (pathInfo == null) {
-            return null;
-        }
-        String value = pathInfo.trim();
-        if (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-        if (value.endsWith("/")) {
-            value = value.substring(0, value.length() - 1);
-        }
-        if (value.isEmpty()) {
-            return null;
-        }
-        if (!value.matches("\\d+")) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private int parseInt(String value, int defaultValue) {
-        if (ApiUtils.isBlank(value)) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
-
-    private Long parseLongParam(String value) {
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private Long extractLong(String body, String key) {
-        String value = ApiUtils.extractString(body, key, LONG_FIELD);
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private BigDecimal extractDecimal(String body, String key) {
-        String value = ApiUtils.extractString(body, key, DECIMAL_FIELD);
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return new BigDecimal(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 }

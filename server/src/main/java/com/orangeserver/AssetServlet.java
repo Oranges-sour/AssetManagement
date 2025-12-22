@@ -9,7 +9,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -20,14 +19,6 @@ import org.slf4j.LoggerFactory;
 @WebServlet("/api/assets/*")
 public class AssetServlet extends HttpServlet {
     private static final Logger logger = LoggerFactory.getLogger(AssetServlet.class);
-    private static final Pattern STRING_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*\"(.*?)\"", Pattern.DOTALL);
-    private static final Pattern NULL_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*null", Pattern.CASE_INSENSITIVE);
-    private static final Pattern LONG_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*(\\d+)", Pattern.DOTALL);
-    private static final Pattern DECIMAL_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)", Pattern.DOTALL);
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -36,7 +27,7 @@ public class AssetServlet extends HttpServlet {
         String pathInfo = req.getPathInfo();
         if (pathInfo != null && !pathInfo.equals("/") && !pathInfo.isEmpty()) {
             if (pathInfo.matches("/\\d+/assign/?")) {
-                Long id = parseId(pathInfo.replaceAll("/assign/?", ""));
+                Long id = ApiUtils.parseId(pathInfo.replaceAll("/assign/?", ""));
                 if (id == null) {
                     ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
                     return;
@@ -45,7 +36,7 @@ public class AssetServlet extends HttpServlet {
                 return;
             }
             if (pathInfo.matches("/\\d+/return/?")) {
-                Long id = parseId(pathInfo.replaceAll("/return/?", ""));
+                Long id = ApiUtils.parseId(pathInfo.replaceAll("/return/?", ""));
                 if (id == null) {
                     ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
                     return;
@@ -68,7 +59,7 @@ public class AssetServlet extends HttpServlet {
             return;
         }
 
-        Long id = parseId(pathInfo);
+        Long id = ApiUtils.parseId(pathInfo);
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
@@ -80,19 +71,19 @@ public class AssetServlet extends HttpServlet {
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
 
-        Long id = parseId(req.getPathInfo());
+        Long id = ApiUtils.parseId(req.getPathInfo());
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
         }
 
         String body = ApiUtils.readBody(req);
-        String assetNo = ApiUtils.extractString(body, "assetNo", STRING_FIELD);
-        String assetName = ApiUtils.extractString(body, "assetName", STRING_FIELD);
-        BigDecimal value = extractDecimal(body, "value");
-        Long locationId = extractLong(body, "locationId");
-        Long assigneeId = extractNullableLong(body, "assigneeId");
-        String remark = ApiUtils.extractNullableString(body, "remark", STRING_FIELD, NULL_FIELD);
+        String assetNo = ApiUtils.extractString(body, "assetNo", ApiUtils.STRING_FIELD);
+        String assetName = ApiUtils.extractString(body, "assetName", ApiUtils.STRING_FIELD);
+        BigDecimal value = ApiUtils.extractDecimal(body, "value");
+        Long locationId = ApiUtils.extractLong(body, "locationId");
+        Long assigneeId = ApiUtils.extractNullableLong(body, "assigneeId");
+        String remark = ApiUtils.extractNullableString(body, "remark", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
 
         if (ApiUtils.isBlank(assetNo) || ApiUtils.isBlank(assetName) || value == null || locationId == null) {
             ApiUtils.writeJson(resp, 4001, "assetNo、assetName、value、locationId 为必填字段", "null");
@@ -155,7 +146,7 @@ public class AssetServlet extends HttpServlet {
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
 
-        Long id = parseId(req.getPathInfo());
+        Long id = ApiUtils.parseId(req.getPathInfo());
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
@@ -184,12 +175,12 @@ public class AssetServlet extends HttpServlet {
          *   "locationId": 10, "assigneeId": null, "remark": "" }
          */
         String body = ApiUtils.readBody(req);
-        String assetNo = ApiUtils.extractString(body, "assetNo", STRING_FIELD);
-        String assetName = ApiUtils.extractString(body, "assetName", STRING_FIELD);
-        BigDecimal value = extractDecimal(body, "value");
-        Long locationId = extractLong(body, "locationId");
-        Long assigneeId = extractNullableLong(body, "assigneeId");
-        String remark = ApiUtils.extractNullableString(body, "remark", STRING_FIELD, NULL_FIELD);
+        String assetNo = ApiUtils.extractString(body, "assetNo", ApiUtils.STRING_FIELD);
+        String assetName = ApiUtils.extractString(body, "assetName", ApiUtils.STRING_FIELD);
+        BigDecimal value = ApiUtils.extractDecimal(body, "value");
+        Long locationId = ApiUtils.extractLong(body, "locationId");
+        Long assigneeId = ApiUtils.extractNullableLong(body, "assigneeId");
+        String remark = ApiUtils.extractNullableString(body, "remark", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
 
         if (ApiUtils.isBlank(assetNo) || ApiUtils.isBlank(assetName) || value == null || locationId == null) {
             ApiUtils.writeJson(resp, 4001, "assetNo、assetName、value、locationId 为必填字段", "null");
@@ -251,7 +242,7 @@ public class AssetServlet extends HttpServlet {
 
     private void handleAssign(HttpServletRequest req, HttpServletResponse resp, long id) throws IOException {
         String body = ApiUtils.readBody(req);
-        Long assigneeId = extractLong(body, "assigneeId");
+        Long assigneeId = ApiUtils.extractLong(body, "assigneeId");
         if (assigneeId == null) {
             ApiUtils.writeJson(resp, 4001, "assigneeId 为必填字段", "null");
             return;
@@ -336,10 +327,10 @@ public class AssetServlet extends HttpServlet {
         String assigneeIdValue = req.getParameter("assigneeId");
         String statusValue = req.getParameter("status");
 
-        Long deptId = parseLongParam(deptIdValue);
-        Long locationId = parseLongParam(locationIdValue);
-        Long assigneeId = parseLongParam(assigneeIdValue);
-        Integer status = parseIntParam(statusValue);
+        Long deptId = ApiUtils.parseLongParam(deptIdValue);
+        Long locationId = ApiUtils.parseLongParam(locationIdValue);
+        Long assigneeId = ApiUtils.parseLongParam(assigneeIdValue);
+        Integer status = ApiUtils.parseIntParam(statusValue);
         if ((deptId == null && !ApiUtils.isBlank(deptIdValue))
                 || (locationId == null && !ApiUtils.isBlank(locationIdValue))
                 || (assigneeId == null && !ApiUtils.isBlank(assigneeIdValue))) {
@@ -355,8 +346,8 @@ public class AssetServlet extends HttpServlet {
             return;
         }
 
-        int page = parseInt(req.getParameter("page"), 1);
-        int size = parseInt(req.getParameter("size"), 10);
+        int page = ApiUtils.parseInt(req.getParameter("page"), 1);
+        int size = ApiUtils.parseInt(req.getParameter("size"), 10);
         if (page <= 0 || size <= 0) {
             ApiUtils.writeJson(resp, 4001, "page 和 size 需为正整数", "null");
             return;
@@ -535,93 +526,4 @@ public class AssetServlet extends HttpServlet {
         }
     }
 
-    private Long parseId(String pathInfo) {
-        if (pathInfo == null) {
-            return null;
-        }
-        String value = pathInfo.trim();
-        if (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-        if (value.endsWith("/")) {
-            value = value.substring(0, value.length() - 1);
-        }
-        if (value.isEmpty()) {
-            return null;
-        }
-        if (!value.matches("\\d+")) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private int parseInt(String value, int defaultValue) {
-        if (ApiUtils.isBlank(value)) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
-
-    private Long parseLongParam(String value) {
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private Integer parseIntParam(String value) {
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return Integer.valueOf(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private Long extractLong(String body, String key) {
-        String value = ApiUtils.extractString(body, key, LONG_FIELD);
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private Long extractNullableLong(String body, String key) {
-        Pattern nullPattern = Pattern.compile(String.format(NULL_FIELD.pattern(), Pattern.quote(key)),
-                NULL_FIELD.flags());
-        if (nullPattern.matcher(body).find()) {
-            return null;
-        }
-        return extractLong(body, key);
-    }
-
-    private BigDecimal extractDecimal(String body, String key) {
-        String value = ApiUtils.extractString(body, key, DECIMAL_FIELD);
-        if (ApiUtils.isBlank(value)) {
-            return null;
-        }
-        try {
-            return new BigDecimal(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
 }

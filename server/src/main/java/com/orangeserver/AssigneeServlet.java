@@ -1,7 +1,6 @@
 package com.orangeserver;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,7 +8,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -20,10 +18,6 @@ import org.slf4j.LoggerFactory;
 @WebServlet("/api/assignees/*")
 public class AssigneeServlet extends HttpServlet {
     private static final Logger logger = LoggerFactory.getLogger(AssigneeServlet.class);
-    private static final Pattern STRING_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*\"(.*?)\"", Pattern.DOTALL);
-    private static final Pattern NULL_FIELD =
-            Pattern.compile("\"%s\"\\s*:\\s*null", Pattern.CASE_INSENSITIVE);
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -33,10 +27,10 @@ public class AssigneeServlet extends HttpServlet {
          * { "empNo": "E1001", "name": "张三", "phone": "13800000000", "remark": "" }
          */
         String body = ApiUtils.readBody(req);
-        String empNo = ApiUtils.extractString(body, "empNo", STRING_FIELD);
-        String name = ApiUtils.extractString(body, "name", STRING_FIELD);
-        String phone = ApiUtils.extractNullableString(body, "phone", STRING_FIELD, NULL_FIELD);
-        String remark = ApiUtils.extractNullableString(body, "remark", STRING_FIELD, NULL_FIELD);
+        String empNo = ApiUtils.extractString(body, "empNo", ApiUtils.STRING_FIELD);
+        String name = ApiUtils.extractString(body, "name", ApiUtils.STRING_FIELD);
+        String phone = ApiUtils.extractNullableString(body, "phone", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
+        String remark = ApiUtils.extractNullableString(body, "remark", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
 
         if (ApiUtils.isBlank(empNo) || ApiUtils.isBlank(name)) {
             ApiUtils.writeJson(resp, 4001, "empNo 和 name 为必填字段", "null");
@@ -98,7 +92,7 @@ public class AssigneeServlet extends HttpServlet {
         }
 
         if (pathInfo.matches("/\\d+/assets/?")) {
-            Long assigneeId = parseId(pathInfo.replaceAll("/assets/?", ""));
+            Long assigneeId = ApiUtils.parseId(pathInfo.replaceAll("/assets/?", ""));
             if (assigneeId == null) {
                 ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
                 return;
@@ -107,7 +101,7 @@ public class AssigneeServlet extends HttpServlet {
             return;
         }
 
-        Long id = parseId(pathInfo);
+        Long id = ApiUtils.parseId(pathInfo);
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
@@ -119,17 +113,17 @@ public class AssigneeServlet extends HttpServlet {
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
 
-        Long id = parseId(req.getPathInfo());
+        Long id = ApiUtils.parseId(req.getPathInfo());
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
         }
 
         String body = ApiUtils.readBody(req);
-        String empNo = ApiUtils.extractString(body, "empNo", STRING_FIELD);
-        String name = ApiUtils.extractString(body, "name", STRING_FIELD);
-        String phone = ApiUtils.extractNullableString(body, "phone", STRING_FIELD, NULL_FIELD);
-        String remark = ApiUtils.extractNullableString(body, "remark", STRING_FIELD, NULL_FIELD);
+        String empNo = ApiUtils.extractString(body, "empNo", ApiUtils.STRING_FIELD);
+        String name = ApiUtils.extractString(body, "name", ApiUtils.STRING_FIELD);
+        String phone = ApiUtils.extractNullableString(body, "phone", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
+        String remark = ApiUtils.extractNullableString(body, "remark", ApiUtils.STRING_FIELD, ApiUtils.NULL_FIELD);
 
         if (ApiUtils.isBlank(empNo) || ApiUtils.isBlank(name)) {
             ApiUtils.writeJson(resp, 4001, "empNo 和 name 为必填字段", "null");
@@ -183,7 +177,7 @@ public class AssigneeServlet extends HttpServlet {
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json; charset=UTF-8");
 
-        Long id = parseId(req.getPathInfo());
+        Long id = ApiUtils.parseId(req.getPathInfo());
         if (id == null) {
             ApiUtils.writeJson(resp, 4001, "id 格式不正确", "null");
             return;
@@ -219,8 +213,8 @@ public class AssigneeServlet extends HttpServlet {
 
     private void handleList(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String keyword = req.getParameter("keyword");
-        int page = parseInt(req.getParameter("page"), 1);
-        int size = parseInt(req.getParameter("size"), 10);
+        int page = ApiUtils.parseInt(req.getParameter("page"), 1);
+        int size = ApiUtils.parseInt(req.getParameter("size"), 10);
         if (page <= 0 || size <= 0) {
             ApiUtils.writeJson(resp, 4001, "page 和 size 需为正整数", "null");
             return;
@@ -316,8 +310,8 @@ public class AssigneeServlet extends HttpServlet {
 
     private void handleAssigneeAssets(HttpServletRequest req, HttpServletResponse resp, long assigneeId)
             throws IOException {
-        int page = parseInt(req.getParameter("page"), 1);
-        int size = parseInt(req.getParameter("size"), 10);
+        int page = ApiUtils.parseInt(req.getParameter("page"), 1);
+        int size = ApiUtils.parseInt(req.getParameter("size"), 10);
         if (page <= 0 || size <= 0) {
             ApiUtils.writeJson(resp, 4001, "page 和 size 需为正整数", "null");
             return;
@@ -375,38 +369,4 @@ public class AssigneeServlet extends HttpServlet {
         }
     }
 
-    private Long parseId(String pathInfo) {
-        if (pathInfo == null) {
-            return null;
-        }
-        String value = pathInfo.trim();
-        if (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-        if (value.endsWith("/")) {
-            value = value.substring(0, value.length() - 1);
-        }
-        if (value.isEmpty()) {
-            return null;
-        }
-        if (!value.matches("\\d+")) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private int parseInt(String value, int defaultValue) {
-        if (ApiUtils.isBlank(value)) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
-    }
 }
