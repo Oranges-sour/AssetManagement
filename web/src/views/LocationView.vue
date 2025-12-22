@@ -24,7 +24,7 @@ type DepartmentOption = {
 
 type LocationSpace = {
   id: number
-  deptId: number
+  deptId: number | null
   deptName: string
   roomNo: string
   area: number
@@ -49,7 +49,7 @@ const departmentOptions = ref<DepartmentOption[]>([])
 
 const formModel = reactive<LocationSpace>({
   id: 0,
-  deptId: 0,
+  deptId: null,
   deptName: '',
   roomNo: '',
   area: 0,
@@ -57,7 +57,7 @@ const formModel = reactive<LocationSpace>({
 })
 
 const rules = {
-  deptId: { required: true, message: '请选择所属部门', trigger: ['blur', 'change'] },
+  deptId: { required: true, type: 'number', message: '请选择所属部门', trigger: ['blur', 'change'] },
   roomNo: { required: true, message: '请输入房间号', trigger: ['blur', 'input'] },
   area: { required: true, type: 'number', message: '请输入面积', trigger: ['blur', 'change'] },
 }
@@ -95,7 +95,7 @@ const columns = computed(() => [
 
 const resetForm = () => {
   formModel.id = 0
-  formModel.deptId = 0
+  formModel.deptId = null
   formModel.deptName = ''
   formModel.roomNo = ''
   formModel.area = 0
