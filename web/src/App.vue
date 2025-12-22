@@ -71,20 +71,21 @@ const handleMenuUpdate = (key: string) => {
 <style scoped>
 .app-shell {
   min-height: 100vh;
-  background: #f5f6f8;
+  background: #f6f4f0;
 }
 
 .app-sider {
-  background: #111827;
+  background: #fdfbf7;
+  border-right: 1px solid #efe7db;
 }
 
 .sider-brand {
   padding: 20px 18px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #efe7db;
 }
 
 .sider-title {
-  color: #f9fafb;
+  color: #3b2f24;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -92,7 +93,7 @@ const handleMenuUpdate = (key: string) => {
 
 .sider-subtitle {
   margin-top: 6px;
-  color: rgba(249, 250, 251, 0.6);
+  color: #8a7a6a;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -100,21 +101,22 @@ const handleMenuUpdate = (key: string) => {
 
 .app-header {
   padding: 16px 24px;
-  background: #ffffff;
+  background: #fffaf2;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  border-bottom: 1px solid #efe7db;
 }
 
 .header-title {
   font-size: 20px;
   font-weight: 600;
-  color: #111827;
+  color: #3b2f24;
 }
 
 .header-subtitle {
   font-size: 12px;
-  color: #6b7280;
+  color: #8a7a6a;
 }
 
 .app-content {
