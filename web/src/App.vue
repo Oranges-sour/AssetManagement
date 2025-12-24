@@ -5,6 +5,7 @@ import {
   NConfigProvider,
   NLayout,
   NLayoutHeader,
+  NLayoutFooter,
   NLayoutSider,
   NLayoutContent,
   NMenu,
@@ -69,7 +70,7 @@ onMounted(runHealthCheck)
               </div>
               <n-menu :value="activeKey" :options="menuOptions" @update:value="handleMenuUpdate" />
             </n-layout-sider>
-            <n-layout>
+            <n-layout class="app-main">
               <n-layout-header bordered class="app-header">
                 <div class="header-title">公司资产管理</div>
                 <div class="header-subtitle">部门 / 位置空间 / 资产 / 领用人</div>
@@ -77,6 +78,10 @@ onMounted(runHealthCheck)
               <n-layout-content class="app-content">
                 <RouterView />
               </n-layout-content>
+              <n-layout-footer bordered class="app-footer">
+                <div class="footer-title">资产管理系统</div>
+                <div class="footer-meta">© 2025 课程设计 · 制作人：Orange</div>
+              </n-layout-footer>
             </n-layout>
           </n-layout>
           <n-modal v-model:show="showHealthModal" preset="card" title="后端状态异常">
@@ -133,6 +138,12 @@ onMounted(runHealthCheck)
   border-bottom: 1px solid #efe7db;
 }
 
+.app-main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 .header-title {
   font-size: 20px;
   font-weight: 600;
@@ -146,6 +157,28 @@ onMounted(runHealthCheck)
 
 .app-content {
   padding: 24px;
+  flex: 1;
+}
+
+.app-footer {
+  padding: 16px 24px;
+  background: #fffaf2;
+  border-top: 1px solid #efe7db;
+  color: #6b5a49;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #3b2f24;
+}
+
+.footer-meta {
+  font-size: 12px;
+  color: #8a7a6a;
 }
 
 .health-message {
